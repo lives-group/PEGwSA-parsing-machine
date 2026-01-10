@@ -1,13 +1,13 @@
 #lang racket
 
 (require redex)
-(require "TheParsingMachineLanguageAtributted.rkt")
+(require "PM_Language.rkt")
 
 
 (define PM
   (reduction-relation
    ParsingMachineLanguage
-   #:domain (R Program Input natural natural Stack M)
+   #:domain (R Program Input natural natural Stack SPR M)
    
     ;; Char instruction - success case
      (--> (suc ((I_1 ...) ((Char natural) I_2 ...)) 
@@ -15,6 +15,7 @@
           natural_pc 
           natural_i 
           Stack
+          SPR
           M)  
 
           (suc ((I_1 ... (Char natural)) (I_2 ...)) 
@@ -22,6 +23,7 @@
           ,(+ (term natural_pc) 1) 
           ,(+ (term natural_i) 1) 
           Stack
+          SPR
           M) 
      "char-match")
 
@@ -31,6 +33,7 @@
           natural_pc 
           natural_i 
           Stack
+          SPR
           M)    
 
           (fail ((I_1 ...) ((Char var1) I_2 ...)) 
@@ -38,6 +41,7 @@
           natural_pc 
           natural_i 
           Stack
+          SPR
           M) 
      "char-fail")
 
@@ -47,6 +51,7 @@
           natural_pc 
           natural_i 
           Stack
+          SPR
           M) 
 
           (fail ((I_1 ...) ((Char natural) I_2 ...)) 
@@ -54,58 +59,78 @@
           natural_pc 
           natural_i 
           Stack
+          SPR
           M) 
      "char-fail-empty")
 
      ;; Any instruction - success case
-     (--> (suc ((I_1 ...) (Any I_2 ...)) ((natural_1 ...) (natural_2 natural_3 ...)) natural_pc natural_i Stack M)                                          
-          (suc ((I_1 ... Any) (I_2 ...)) ((natural_1 ... natural_2) (natural_3 ...)) ,(+ (term natural_pc) 1) ,(+ (term natural_i) 1) Stack M)
+     (--> (suc ((I_1 ...) (Any I_2 ...)) ((natural_1 ...) (natural_2 natural_3 ...)) natural_pc natural_i Stack SPR M)
+          (suc ((I_1 ... Any) (I_2 ...)) ((natural_1 ... natural_2) (natural_3 ...)) ,(+ (term natural_pc) 1) ,(+ (term natural_i) 1) Stack SPR M)
      "any-match")
 
      ;; Any instruction - fail case
-     (--> (suc ((I_1 ...) (Any I_2 ...)) ((natural_1 ...) ( )) natural_pc natural_i Stack M)                                          
-          (fail ((I_1 ...) (Any I_2 ...)) ((natural_1 ... ) ( )) natural_pc natural_i Stack M)
+     (--> (suc ((I_1 ...) (Any I_2 ...)) ((natural_1 ...) ( )) natural_pc natural_i Stack SPR M)
+          (fail ((I_1 ...) (Any I_2 ...)) ((natural_1 ... ) ( )) natural_pc natural_i Stack SPR M)
      "any-fail-empty")
 
      ;; Choice instruction
-     (--> (suc ((I_1 ...) ((Choice integer) I_2 ...)) Input natural_pc natural_i (StackEntry ...) M)           
-          (suc ((I_1 ... (Choice integer)) (I_2 ...)) Input ,(+ (term natural_pc) 1) natural_i ((,(+ (term natural_pc) (term integer)) natural_i) StackEntry ...) M)
+     (--> (suc ((I_1 ...) ((Choice integer) I_2 ...)) Input natural_pc natural_i (StackEntry ...) SPR M)
+          (suc
+           ((I_1 ... (Choice integer)) (I_2 ...))
+           Input
+           ,(+ (term natural_pc) 1)
+           natural_i
+           ((,(+ (term natural_pc) (term integer)) natural_i ) StackEntry ...)
+           SPR
+           M)
      "choice-match")
 
      ;; Jump instruction
-     (--> (suc ((I_1 ...) ((Jump integer) I_2 ...)) Input natural_pc natural_i Stack M)           
-          (suc (moveProgram ((I_1 ...) ((Jump integer) I_2 ...)) integer) Input ,(+ (term natural_pc) (term integer)) natural_i Stack M)      
+     (--> (suc ((I_1 ...) ((Jump integer) I_2 ...)) Input natural_pc natural_i Stack SPR M)
+          (suc (moveProgram ((I_1 ...) ((Jump integer) I_2 ...)) integer) Input ,(+ (term natural_pc) (term integer)) natural_i Stack SPR M)
      "jump-match")
 
      ;; Call instruction
-     (--> (suc ((I_1 ...) ((Call integer) I_2 ...)) Input natural_pc natural_i (StackEntry ...) M)           
-          (suc (moveProgram((I_1 ...) ((Call integer) I_2 ...)) integer) Input ,(+ (term natural_pc) (term integer)) natural_i (,(+ (term natural_pc) 1) StackEntry ...) M)
+     (--> (suc ((I_1 ...) ((Call integer) I_2 ...)) Input natural_pc natural_i (StackEntry ...) SPR M)
+          (suc
+           (moveProgram((I_1 ...) ((Call integer) I_2 ...)) integer)
+           Input
+           ,(+ (term natural_pc) (term integer))
+           natural_i
+           (,(+ (term natural_pc) 1) SPR StackEntry ...)
+            ,(length (term M))
+            M)
      "call-match")
 
      ;; Return instruction
-     (--> (suc ((I_1 ...) ((Return natural_n) I_2 ...)) Input natural_pc0 natural_i (StackEntry ...) M)
-          (suc (moveProgram ((I_1 ...) ((Return natural_n) I_2 ...)) ,(- (term natural_pc1) (term natural_pc0))) Input natural_pc1 natural_i (StackEntry_1 ... StackEntry_3 ...) M)
-          (where ((StackEntry_1 ...) (natural_pc1 StackEntry_3 ...)) (splitStack natural_n (StackEntry ...)))
+     (--> (suc ((I_1 ...) ((Return natural_n) I_2 ...)) Input natural_pc0 natural_i (StackEntry ...) SPR M)
+          (suc
+           (moveProgram ((I_1 ...) ((Return natural_n) I_2 ...)) ,(- (term natural_pc1) (term natural_pc0)))
+           Input natural_pc1 natural_i
+           (StackEntry_1 ... StackEntry_3 ...)
+           SPR_1
+           M)
+          (where ((StackEntry_1 ...) (natural_pc1 SPR_1 StackEntry_3 ...)) (splitStack natural_n (StackEntry ...)))
      "return-match")
 
      ;; Commit instruction
-     (--> (suc ((I_1 ...) ((Commit integer) I_2 ...)) Input natural_pc natural_i (StackEntry_head StackEntry ...) M)
-          (suc (moveProgram ((I_1 ...) ((Commit integer) I_2 ...)) integer) Input ,(+ (term natural_pc) (term integer)) natural_i (StackEntry ...) M)
+     (--> (suc ((I_1 ...) ((Commit integer) I_2 ...)) Input natural_pc natural_i (StackEntry_head StackEntry ...) SPR M)
+          (suc (moveProgram ((I_1 ...) ((Commit integer) I_2 ...)) integer) Input ,(+ (term natural_pc) (term integer)) natural_i (StackEntry ...) SPR M)
      "commit-match")
 
      ;; Fail instruction
-     (--> (suc ((I_1 ...) (Fail I_2 ...)) Input natural_pc natural_i Stack M)
-          (fail ((I_1 ... Fail) (I_2 ...)) Input ,(+ (term natural_pc) 1) natural_i Stack M)
+     (--> (suc ((I_1 ...) (Fail I_2 ...)) Input natural_pc natural_i Stack SPR M)
+          (fail ((I_1 ... Fail) (I_2 ...)) Input ,(+ (term natural_pc) 1) natural_i Stack SPR M)
      "fail-instruction")
 
      ;; Fail
-     (--> (fail Program Input natural_pc natural_i (natural StackEntry ...) M)
-          (fail Program Input natural_pc natural_i (StackEntry ...) M)
+     (--> (fail Program Input natural_pc natural_i (natural StackEntry ...) SPR M)
+          (fail Program Input natural_pc natural_i (StackEntry ...) SPR M)
      "fail")
 
      ;; Fail restore instruction
-     (--> (fail Program Input natural_pc natural_i ((natural_newPC natural_newI) StackEntry ...) M)
-          (suc (moveProgram Program ,(- (term natural_newPC) (term natural_pc))) (moveInput Input ,(- (term natural_newI) (term natural_i))) natural_newPC natural_newI (StackEntry ...) M)
+     (--> (fail Program Input natural_pc natural_i ((natural_newPC natural_newI) StackEntry ...) SPR M)
+          (suc (moveProgram Program ,(- (term natural_newPC) (term natural_pc))) (moveInput Input ,(- (term natural_newI) (term natural_i))) natural_newPC natural_newI (StackEntry ...) SPR M)
      "fail-restore")
 
      ;;Load
@@ -114,13 +139,15 @@
           natural_pc 
           natural_i 
           (StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... (Load natural)) ( I_2 ...)) 
           Input 
           ,(+ (term natural_pc) 1) 
           natural_i 
-          ((readMem natural M) StackEntry ...)
+          ((readMem ,(+ (term natural) (term SPR)) M) StackEntry ...)
+          SPR
           M) 
      "load")
 
@@ -130,6 +157,7 @@
           natural_pc 
           natural_i 
           (Value_1 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... (Store natural)) ( I_2 ...)) 
@@ -137,7 +165,8 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (StackEntry ...)
-          (writeMem natural Value_1 M)) 
+          SPR
+          (writeMem ,(+ (term natural) (term SPR)) Value_1 M)) 
      "store")
 
       ;; Push
@@ -146,6 +175,7 @@
           natural_pc 
           natural_i 
           (StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... (Push Value_1)) ( I_2 ...)) 
@@ -153,6 +183,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (Value_1 StackEntry ...)
+          SPR
           M) 
      "push")
 
@@ -162,6 +193,7 @@
           natural_pc 
           natural_i 
           (Value_1 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Pop ) ( I_2 ...)) 
@@ -169,6 +201,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (StackEntry ...)
+          SPR
           M) 
      "pop")
 
@@ -178,6 +211,7 @@
           natural_pc 
           natural_i 
           (natural_1 natural_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Add ) ( I_2 ...)) 
@@ -185,6 +219,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(+ (term natural_1) (term natural_2)) StackEntry ...)
+          SPR
           M) 
      "add")
 
@@ -194,6 +229,7 @@
           natural_pc 
           natural_i 
           (natural_1 natural_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Sub ) ( I_2 ...)) 
@@ -201,6 +237,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(- (term natural_2) (term natural_1)) StackEntry ...)
+          SPR
           M) 
      "sub")
 
@@ -210,6 +247,7 @@
           natural_pc 
           natural_i 
           (natural_1 natural_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Mult ) ( I_2 ...)) 
@@ -217,6 +255,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(* (term natural_2) (term natural_1)) StackEntry ...)
+          SPR
           M) 
      "mult")
 
@@ -226,6 +265,7 @@
           natural_pc 
           natural_i 
           (natural_1 natural_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Div ) ( I_2 ...)) 
@@ -233,6 +273,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(/ (term natural_2) (term natural_1)) StackEntry ...)
+          SPR
           M) 
      "div")
 
@@ -242,6 +283,7 @@
           natural_pc 
           natural_i 
           (boolean_1  boolean_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... And) ( I_2 ...)) 
@@ -249,6 +291,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(and  (term  boolean_1) (term  boolean_2)) StackEntry ...)
+          SPR
           M) 
      "and")
 
@@ -258,6 +301,7 @@
           natural_pc 
           natural_i 
           (boolean_1  boolean_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Or) ( I_2 ...)) 
@@ -265,6 +309,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(or  (term  boolean_1) (term  boolean_2)) StackEntry ...)
+          SPR
           M) 
      "or")
 
@@ -274,6 +319,7 @@
           natural_pc 
           natural_i 
           (boolean_1 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Not) ( I_2 ...)) 
@@ -281,6 +327,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(not (term boolean_1)) StackEntry ...)
+          SPR
           M) 
      "not")
 
@@ -290,6 +337,7 @@
           natural_pc 
           natural_i 
           (boolean_1 boolean_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Eq) ( I_2 ...)) 
@@ -297,6 +345,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(equal? (term boolean_1) (term boolean_2)) StackEntry ...)
+          SPR
           M) 
      "eq-bool")
 
@@ -306,6 +355,7 @@
           natural_pc 
           natural_i 
           (natural_1 natural_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Eq) ( I_2 ...)) 
@@ -313,6 +363,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(equal? (term natural_1) (term natural_2)) StackEntry ...)
+          SPR
           M) 
      "eq-nat")
 
@@ -322,6 +373,7 @@
           natural_pc 
           natural_i 
           (List_1 List_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Eq) ( I_2 ...)) 
@@ -329,6 +381,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(equal? (term List_1) (term List_2)) StackEntry ...)
+          SPR
           M) 
      "eq-list")
 
@@ -338,6 +391,7 @@
           natural_pc 
           natural_i 
           (natural_1 natural_2 StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Lt) ( I_2 ...)) 
@@ -345,6 +399,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (,(< (term natural_2) (term natural_1)) StackEntry ...)
+          SPR
           M) 
      "lt")
 
@@ -354,6 +409,7 @@
           natural_pc 
           natural_i 
           ((cons Value_1 List_1) StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Head) ( I_2 ...)) 
@@ -361,6 +417,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (Value_1 StackEntry ...)
+          SPR
           M) 
      "head")
 
@@ -370,6 +427,7 @@
           natural_pc 
           natural_i 
           ((cons Value_1 List_1) StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Tail) ( I_2 ...)) 
@@ -377,6 +435,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           (List_1 StackEntry ...)
+          SPR
           M) 
      "tail")
 
@@ -386,6 +445,7 @@
           natural_pc 
           natural_i 
           (Value_1 List StackEntry ...)
+          SPR
           M) 
 
           (suc ((I_1 ... Cons) ( I_2 ...)) 
@@ -393,6 +453,7 @@
           ,(+ (term natural_pc) 1) 
           natural_i 
           ((cons Value_1 List) StackEntry ...)
+          SPR
           M) 
      "cons")
 
@@ -402,12 +463,14 @@
                 natural_pc 
                 natural_i 
                 (List_1 List_2 StackEntry ...)
+                SPR
                 M) 
            (suc ((I_1 ... Concat) (I_2 ...)) 
                 Input 
                 ,(+ (term natural_pc) 1) 
                 natural_i 
                 ((concat List_1 List_2) StackEntry ...)
+                SPR
                 M) 
            "concat")
 
@@ -417,12 +480,14 @@
                 natural_pc 
                 natural_i 
                 (natural List_1 StackEntry ...)
+                SPR
                 M) 
            (suc ((I_1 ... LGet) (I_2 ...)) 
                 Input 
                 ,(+ (term natural_pc) 1) 
                 natural_i 
                 ((readList natural List_1) StackEntry ...)
+                SPR
                 M) 
            "lget")
 
@@ -432,12 +497,14 @@
                 natural_pc 
                 natural_i 
                 (#t StackEntry ...)
+                SPR
                 M) 
            (suc ((I_1 ... Assert) (I_2 ...)) 
                 Input 
                 ,(+ (term natural_pc) 1) 
                 natural_i 
                 (StackEntry ...)
+                SPR
                 M) 
            "assert-sucess")
 
@@ -447,6 +514,7 @@
                 natural_pc 
                 natural_i 
                 (#f StackEntry ...)
+                SPR
                 M)
 
            (fail ((I_1 ...) (Assert I_2 ...)) 
@@ -454,6 +522,7 @@
                  natural_pc 
                  natural_i 
                  (StackEntry ...)
+                 SPR
                  M) 
            "assert-fail")
 
@@ -463,6 +532,7 @@
                 natural_pc 
                 natural_i 
                 Stack
+                SPR
                 M)
 
            (suc ((I_1 ...) (Halt I_2 ...)) 
@@ -470,6 +540,7 @@
                 natural_pc 
                 natural_i 
                 Stack
+                SPR
                 M) 
            "halt")
 
@@ -582,7 +653,7 @@
                    0
                    
                    ()
-                   
+                   0
                    ()
                   ))))
 
@@ -626,6 +697,83 @@
                    1              
                    0              
                    (1 (cons 1 (cons 2 (cons 3 nill)))) 
+                   0
+                   ()
+                  )))
+#;(traces PM (term (suc
+                   (()    
+                    ((Store 0)))  
+                   (() 
+                    (97 98))          
+                   1              
+                   0              
+                   (128) 
+                   5
+                   (0 1 2 3)
+                  )))
+#;(traces PM (term (suc
+                   (()    
+                    ((Load 0)))  
+                   (() 
+                    (97 98))          
+                   1              
+                   0              
+                   (256) 
+                   5
+                   (0 1 2 3 0 127)
+                  )))
+
+#;(traces PM (term (suc
+                   (()    
+                    ((Push 0)
+                     (Store 0)
+                     (Char 98)
+                     (Push 1)
+                     (Store 1)
+                     (Char 99)
+                     (Push 2)
+                     (Store 2)
+                     (Call 2)
+                     (Return 0)
+                     (Push 5)
+                     (Store 0)
+                     (Char 101)
+                     (Push 6)
+                     (Store 1)
+                     (Char 102)
+                     (Push 7)
+                     (Store 2)
+                     (Return 0)))  
+                   (() (98 99 101 102))          
+                   1              
+                   0              
+                   () 
+                   0
+                   ()
+                  )))
+
+(traces PM (term (suc
+                   (()    
+                    ((Call 2)
+                     Halt
+                     (Choice 9)
+                     (Char 98)
+                     (Call -2)
+                     (Store 1)
+                     (Push 1)
+                     (Load 1)
+                     Add
+                     (Store 0)
+                     (Commit 3)
+                     (Push 0)
+                     (Store 0)
+                     (Load 0)
+                     (Return 1)))  
+                   (() (98 98 98 98 98))          
+                   1              
+                   0              
+                   () 
+                   0
                    ()
                   )))
 #;(term (moveProgram (() ((Char 97) (Char 98) (Char 97) (Char 97) Any)) 7))

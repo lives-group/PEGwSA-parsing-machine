@@ -60,4 +60,5 @@
     [M ::= (Value ...)]
 
     [R ::= suc
-           fail])    
+           fail]
+    [SPR ::= natural ])
