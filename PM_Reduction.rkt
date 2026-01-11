@@ -80,7 +80,7 @@
            Input
            ,(+ (term natural_pc) 1)
            natural_i
-           ((,(+ (term natural_pc) (term integer)) natural_i ) StackEntry ...)
+           ((,(+ (term natural_pc) (term integer)) natural_i SPR ,(drop (term M) (term SPR)) ) StackEntry ...)
            SPR
            M)
      "choice-match")
@@ -124,13 +124,18 @@
      "fail-instruction")
 
      ;; Fail
-     (--> (fail Program Input natural_pc natural_i (natural StackEntry ...) SPR M)
+     (--> (fail Program Input natural_pc natural_i (Value StackEntry ...) SPR M)
           (fail Program Input natural_pc natural_i (StackEntry ...) SPR M)
      "fail")
 
      ;; Fail restore instruction
-     (--> (fail Program Input natural_pc natural_i ((natural_newPC natural_newI) StackEntry ...) SPR M)
-          (suc (moveProgram Program ,(- (term natural_newPC) (term natural_pc))) (moveInput Input ,(- (term natural_newI) (term natural_i))) natural_newPC natural_newI (StackEntry ...) SPR M)
+     (--> (fail Program Input natural_pc natural_i ((natural_newPC natural_newI SPR_new M_sfx) StackEntry ...) SPR M)
+          (suc
+           (moveProgram Program ,(- (term natural_newPC) (term natural_pc)))
+           (moveInput Input ,(- (term natural_newI) (term natural_i)))
+           natural_newPC
+           natural_newI
+           (StackEntry ...) SPR_new (mcopy SPR_new M M_sfx))
      "fail-restore")
 
      ;;Load
@@ -608,6 +613,15 @@
                                                       (where ((StackEntry_3 ...) (StackEntry_4 ...))
                                                              (splitStack ,(- (term natural) 1) (StackEntry ...) ))])
 
+
+(define-metafunction ParsingMachineLanguage
+  mcopy : natural M M -> M
+  [(mcopy 0 M ()) M]
+  ;[(mcopy 0 () M) M]
+  [(mcopy 0 (Value_0 Value_1 ...) (Value_2 Value_3 ...)) (ins Value_2 (mcopy 0 (Value_1 ...) (Value_3 ...) ))]
+  [(mcopy natural (Value_0 Value_1 ...) M) (ins Value_0 (mcopy ,(- (term natural) 1) (Value_1 ...) M ))])
+
+
 (define (exemplo01 )
   (traces PM (term (suc
                     
@@ -752,7 +766,7 @@
                    ()
                   )))
 
-(traces PM (term (suc
+#;(traces PM (term (suc
                    (()    
                     ((Call 2)
                      Halt
@@ -770,6 +784,38 @@
                      (Load 0)
                      (Return 1)))  
                    (() (98 98 98 98 98))          
+                   1              
+                   0              
+                   () 
+                   0
+                   ()
+                  )))
+;
+;(n = n + 1) 'a' /  (n = n + 2) 'b'
+
+;i 0 1 2 3 4 5 6
+;M 7 7 7 8 8 8 9 
+;Mf 7 7 7 8 8 8 9
+;spr = 0
+(traces PM (term (suc
+                   (()    
+                    ((Push 0)
+                     (Store 0)
+                     (Choice 8)
+                     (Push 1)
+                     (Load 0)
+                     Add
+                     (Store 0)
+                     (Push nill)
+                     (Char 97)
+                     (Commit 6)
+                     (Load 0)
+                     (Push 2)
+                     Add
+                     (Store 0)
+                     (Char 98)
+                     Halt))  
+                   (() (98 0))          
                    1              
                    0              
                    () 
